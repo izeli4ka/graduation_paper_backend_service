@@ -5,6 +5,7 @@ from app.database.database import get_db
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserInDB
 from app.database.models import User
 from app.utils.security import get_password_hash, verify_password, get_current_user
+from app.api.auth import get_current_active_user
 
 
 router = APIRouter()
@@ -96,6 +97,21 @@ def delete_current_user(
 
 
 # Административные маршруты (требуют прав администратора)
+
+
+@router.post("/users/{user_id}/make-admin", status_code=204)
+def make_admin(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    if not current_user.is_admin:
+        raise HTTPException(403, "Недостаточно прав")
+    db_user = db.query(User).get(user_id)
+    if not db_user:
+        raise HTTPException(404, "Пользователь не найден")
+    db_user.is_admin = True
+    db.commit()
 
 
 @router.get("/users/", response_model=List[UserResponse])

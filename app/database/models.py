@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, DateTime
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, DateTime,  LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database.database import Base
@@ -19,17 +19,26 @@ class User(Base):
     
     posters = relationship("Poster", back_populates="owner")
 
-
 class Poster(Base):
     __tablename__ = "posters"
+    id           = Column(Integer, primary_key=True, index=True)
+    title        = Column(String, index=True)
+    content      = Column(Text)              
+    html_content = Column(Text, nullable=True)  
+    pdf_url      = Column(String, nullable=True) 
+    template_id  = Column(String)
+    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at   = Column(DateTime(timezone=True), onupdate=func.now())
+    owner_id     = Column(Integer, ForeignKey("users.id"))
+    owner        = relationship("User", back_populates="posters")
+    images = relationship("Image", back_populates="poster")
 
-
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    content = Column(Text) 
-    template_id = Column(String)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    owner_id = Column(Integer, ForeignKey("users.id"))
+class Image(Base):
+    __tablename__ = "images"
+    id        = Column(Integer, primary_key=True, index=True)
+    filename  = Column(String, nullable=False)
+    url       = Column(String, nullable=True)       # если храним только URL
+    data      = Column(LargeBinary, nullable=True)   # или бинарь, но лучше URL
+    poster_id = Column(Integer, ForeignKey("posters.id"))
     
-    owner = relationship("User", back_populates="posters")
+    poster    = relationship("Poster", back_populates="images")

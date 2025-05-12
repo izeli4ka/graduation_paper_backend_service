@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from jwt.exceptions import InvalidTokenError
 import jwt
-
+from sqlalchemy import func
 from app.database.database import get_db
 from app.database.models import User
 from app.schemas.user import UserCreate, UserResponse
@@ -17,29 +17,34 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 @router.post("/register", response_model=UserResponse)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    # Проверка email
-    db_user = db.query(User).filter(User.email == user.email).first()
-    if db_user:
+    # Проверяем, не занят ли email
+    if db.query(User).filter(User.email == user.email).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
-    
-    # Проверка username
-    db_user = db.query(User).filter(User.username == user.username).first()
-    if db_user:
+
+    # Проверяем, не занят ли username
+    if db.query(User).filter(User.username == user.username).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already registered"
         )
-    
-    # Создание нового пользователя
+
+    # Определяем, существует ли уже хотя бы один админ
+    admin_count = db.query(func.count(User.id)).filter(User.is_admin == True).scalar()
+    is_first_admin = (admin_count == 0)
+
+    # Создаем нового пользователя
     hashed_password = get_password_hash(user.password)
     db_user = User(
         email=user.email,
         username=user.username,
-        hashed_password=hashed_password
+        hashed_password=hashed_password,
+        is_admin=is_first_admin,   # первый пользователь становится админом
+        is_active=True
     )
+
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
