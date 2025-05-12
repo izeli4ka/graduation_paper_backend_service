@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, APIRouter, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -7,7 +8,6 @@ import httpx
 from app.api import auth, users, posters, images  
 from app.database.database import engine
 from app.database import models
-from app.config import settings
 from app.database.models import User
 from app.utils.security import get_current_user
 
@@ -21,9 +21,10 @@ app = FastAPI(
 )
 
 # CORS
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:8080").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=getattr(settings, "ALLOWED_ORIGINS", ["http://localhost:8080"]),
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,10 +42,9 @@ async def ml_proxy(
     request: Request,
     current_user: User = Depends(get_current_user)
 ):
-    ml_service_url = settings.ML_SERVICE_URL.rstrip("/")
-    target_url = f"{ml_service_url}/api/ml/{path.lstrip('/')}"
+    ml_service_url = os.getenv("ML_SERVICE_URL", "http://localhost:8001").rstrip("/")
+    target_url = f"{ml_service_url}/api/ml/{path.lstrip('/') }"
     body = await request.body()
-    # копируем все заголовки кроме host
     headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
     headers["X-User-ID"] = str(current_user.id)
 
@@ -70,7 +70,6 @@ app.include_router(posters.router, prefix="/api", tags=["posters"])
 app.include_router(images.router, prefix="/api", tags=["images"])
 app.include_router(ml_proxy_router, prefix="/api/ml-proxy", tags=["ml-proxy"])
 
-
 @app.get("/", tags=["root"])
 async def root():
     return {
@@ -79,16 +78,13 @@ async def root():
         "redoc_url": "/redoc"
     }
 
-
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    # возвращаем JSONResponse, а не HTTPException!
     return JSONResponse(
         status_code=500,
         content={"detail": str(exc), "path": request.url.path}
     )
 
-
-if __name__ == "__main__":
+if name == "main":
     import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
