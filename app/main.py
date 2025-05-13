@@ -21,7 +21,7 @@ app = FastAPI(
 )
 
 # CORS
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:8080").split(",")
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:8080/register").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
